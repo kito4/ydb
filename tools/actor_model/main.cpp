@@ -1,36 +1,28 @@
 #include "actors.h"
-#include <library/cpp/actors/core/executor_pool_basic.h>
-#include <library/cpp/actors/core/scheduler_basic.h>
-#include <util/generic/xrange.h>
+#include "events.h"
 
-THolder<NActors::TActorSystemSetup> BuildActorSystemSetup(ui32 threads, ui32 pools) {
-    auto setup = MakeHolder<NActors::TActorSystemSetup>();
-    setup->ExecutorsCount = pools;
-    setup->Executors.Reset(new TAutoPtr<NActors::IExecutorPool>[pools]);
-    for (ui32 idx : xrange(pools)) {
-        setup->Executors[idx] = new NActors::TBasicExecutorPool(idx, threads, 512);
+#include <library/cpp/actors/core/actor_system.h>
+#include <library/cpp/actors/core/actor_id.h>
+#include <library/cpp/actors/core/actor_system_setup.h>
+#include <library/cpp/actors/util/should_continue.h>
+
+int main() {
+    NActors::TActorSystemSetup setup;
+    setup.NodeCount = 1;
+    setup.ExecutorsCount = 2;
+    setup.Metrics = nullptr;
+
+    NActors::TActorSystem system(setup);
+    system.Start();
+
+    auto writeActor = system.Register(CreateWriteActor().Release());
+    auto readActor = CreateReadActor(std::cin, writeActor);
+    system.Register(readActor.Release());
+
+    while (*GetProgramShouldContinue()) {
+        Sleep(TDuration::MilliSeconds(10));
     }
-    setup->Scheduler.Reset(new NActors::TBasicSchedulerThread(NActors::TSchedulerConfig(512, 0)));
-    return setup;
-}
 
-int main(int argc, const char* argv[])
-{
-    Y_UNUSED(argc, argv);
-    auto actorySystemSetup = BuildActorSystemSetup(20, 1);
-    NActors::TActorSystem actorSystem(actorySystemSetup);
-    actorSystem.Start();
-
-    actorSystem.Register(CreateSelfPingActor(TDuration::Seconds(1)).Release());
-
-    // Зарегистрируйте Write и Read акторы здесь
-
-    // Раскомментируйте этот код
-    // auto shouldContinue = GetProgramShouldContinue();
-    // while (shouldContinue->PollState() == TProgramShouldContinue::Continue) {
-    //     Sleep(TDuration::MilliSeconds(200));
-    // }
-    actorSystem.Stop();
-    actorSystem.Cleanup();
-    // return shouldContinue->GetReturnCode();
+    system.Stop();
+    return 0;
 }
