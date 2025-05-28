@@ -1,6 +1,13 @@
-#include <library/cpp/actors/core/event_local.h>
+#pragma once
+
 #include <library/cpp/actors/core/events.h>
 
-struct TEvents {
-    // Вам нужно самостоятельно сюда добавить все необходимые events в NActors::TEvents::ES_PRIVATE
-};
+namespace TEvents {
+    struct TEvDone : NActors::TEventLocal<TEvDone, 1> {};
+
+    struct TEvWriteValueRequest : NActors::TEventLocal<TEvWriteValueRequest, 2> {
+        int64_t Value;
+        TEvWriteValueRequest(int64_t value) : Value(value) {}
+    };
+}
+
